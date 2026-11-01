@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kingdomx"
+version = "1.0.0"
+description = "KINGDOM X — THE KING OF GLOBAL TECHNOLOGY. ONE PLATFORM. ALL TECHNOLOGIES. UNLIMITED INTELLIGENCE."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Janrahat" }]
+keywords = ["cybersecurity", "intelligence", "osint", "analytics", "kali", "termux"]
+
+dependencies = [
+    "rich>=13.7,<15",
+    "psutil>=5.9",
+    "dnspython>=2.4",
+]
+
+[project.optional-dependencies]
+web = ["fastapi>=0.110", "uvicorn>=0.27"]
+dev = ["pytest>=7.4", "httpx>=0.26"]
+
+[project.scripts]
+kingdomx = "kingdomx.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/Janrahat/kingdom-x"
+Issues = "https://github.com/Janrahat/kingdom-x/issues"
+
+[tool.setuptools.packages.find]
+include = ["kingdomx*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KINGDOM X — The King of Global Technology</title>
+<style>
+  :root{
+    --black:#050505; --panel:#0d0d0f; --panel-2:#121215; --rule:#232327;
+    --gold:#D4AF37; --gold-dim:#8a7226; --gold-bright:#F5D76E;
+    --text:#E8E6E1; --muted:#8f8d88;
+    --online:#2FBF71; --warn:#E0A526; --error:#DA3B3B; --info:#3FA9F5;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--black);color:var(--text);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--gold-bright);text-decoration:none}
+  code,.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  /* ---------- header ---------- */
+  header{border-bottom:1px solid var(--rule);
+    background:linear-gradient(180deg,#0a0a0c 0%,var(--black) 100%);
+    padding:26px 22px 22px}
+  .head-wrap{max-width:1240px;margin:0 auto;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .crown{width:44px;height:44px;flex:0 0 auto}
+  .brand h1{margin:0;font-size:26px;letter-spacing:.16em;font-weight:800;
+    background:linear-gradient(92deg,var(--gold-bright),var(--gold) 45%,var(--gold-dim));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .sub{margin-top:5px;font-size:11px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+  .brand .tag{margin-top:9px;font-size:12px;color:var(--gold-dim);letter-spacing:.06em}
+  .spacer{flex:1 1 auto}
+  .pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--rule);
+    background:var(--panel);border-radius:999px;padding:7px 14px;font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .dot.online{background:var(--online);box-shadow:0 0 10px var(--online)}
+  .dot.warn{background:var(--warn);box-shadow:0 0 10px var(--warn)}
+  .dot.error{background:var(--error);box-shadow:0 0 10px var(--error)}
+
+  /* ---------- layout ---------- */
+  main{max-width:1240px;margin:0 auto;padding:26px 22px 64px}
+  .grid{display:grid;gap:16px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:12px;
+    padding:18px 18px 16px;position:relative;overflow:hidden;
+    transition:border-color .18s ease,transform .18s ease}
+  .card:hover{border-color:var(--gold-dim);transform:translateY(-2px)}
+  .card::after{content:"";position:absolute;inset:0 0 auto 0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.35}
+  .card .label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .card .value{font-size:34px;font-weight:700;margin-top:10px;line-height:1;
+    color:var(--gold-bright);font-variant-numeric:tabular-nums}
+  .card .note{font-size:11px;color:var(--muted);margin-top:9px}
+
+  h2.sec{font-size:11px;letter-spacing:.26em;text-transform:uppercase;
+    color:var(--gold);margin:34px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+
+  /* ---------- table ---------- */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--panel)}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+  th{text-align:left;padding:12px 14px;font-size:10px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--gold-dim);border-bottom:1px solid var(--rule);
+    background:var(--panel-2);font-weight:600}
+  td{padding:11px 14px;border-bottom:1px solid #17171a;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#101013}
+  td.key{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--gold-bright);white-space:nowrap}
+  td.sum{color:var(--muted);font-size:12px;max-width:520px}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:10px;
+    letter-spacing:.1em;font-weight:600;white-space:nowrap}
+  .b-WORKING{background:rgba(47,191,113,.13);color:var(--online);border:1px solid rgba(47,191,113,.3)}
+  .b-NEEDS_NETWORK,.b-NEEDS_KEY{background:rgba(63,169,245,.12);color:var(--info);border:1px solid rgba(63,169,245,.3)}
+  .b-NEEDS_AUTHZ{background:rgba(224,165,38,.12);color:var(--warn);border:1px solid rgba(224,165,38,.3)}
+  .b-PLANNED{background:rgba(143,141,136,.1);color:var(--muted);border:1px solid var(--rule)}
+  .b-PARTIAL{background:rgba(224,165,38,.12);color:var(--warn);border:1px solid rgba(224,165,38,.3)}
+  .b-UNAVAILABLE{background:rgba(218,59,59,.12);color:var(--error);border:1px solid rgba(218,59,59,.3)}
+
+  /* ---------- charts ---------- */
+  .bar{height:6px;background:#1b1b1f;border-radius:3px;overflow:hidden;margin-top:10px}
+  .bar > i{display:block;height:100%;border-radius:3px;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold-bright))}
+
+  /* ---------- menu ---------- */
+  .menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .menu-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel);
+    border:1px solid var(--rule);border-radius:9px;font-size:12.5px}
+  .menu-item .n{font-family:"JetBrains Mono",monospace;color:var(--gold-dim);font-size:11px}
+  .menu-item .c{flex:1 1 auto;color:var(--text)}
+  .menu-item .live{font-size:10px;color:var(--online);letter-spacing:.06em}
+  .menu-item .live.zero{color:var(--muted)}
+
+  footer{max-width:1240px;margin:0 auto;padding:26px 22px 50px;
+    border-top:1px solid var(--rule);color:var(--muted);font-size:11.5px;line-height:1.7}
+  .notice{border-left:2px solid var(--gold-dim);padding-left:14px;margin-top:14px}
+
+  @media (max-width:640px){
+    .brand h1{font-size:19px;letter-spacing:.1em}
+    .card .value{font-size:26px}
+    main{padding:18px 14px 44px}
+    header{padding:20px 14px 16px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-wrap">
+    <svg class="crown" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path d="M6 34 L10 14 L18 22 L24 8 L30 22 L38 14 L42 34 Z"
+            stroke="#D4AF37" stroke-width="2" stroke-linejoin="round" fill="rgba(212,175,55,.08)"/>
+      <path d="M6 34 H42" stroke="#D4AF37" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="24" cy="8" r="1.9" fill="#F5D76E"/>
+      <circle cx="10" cy="14" r="1.5" fill="#D4AF37"/>
+      <circle cx="38" cy="14" r="1.5" fill="#D4AF37"/>
+    </svg>
+    <div class="brand">
+      <h1>KINGDOM X</h1>
+      <div class="sub">The King of Global Technology</div>
+      <div class="tag">ONE PLATFORM. ALL TECHNOLOGIES. UNLIMITED INTELLIGENCE.</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="pill"><span class="dot online"></span> <span id="host-pill">dashboard online</span></div>
+  </div>
+</header>
+
+<main>
+  <h2 class="sec">Module status</h2>
+  <section class="grid cards" id="counts"></section>
+
+  <h2 class="sec">Coverage</h2>
+  <div class="card">
+    <div class="label">Implementation breakdown</div>
+    <div id="coverage" style="margin-top:14px"></div>
+  </div>
+
+  <h2 class="sec">Main menu</h2>
+  <div class="menu" id="menu"></div>
+
+  <h2 class="sec">Registered modules</h2>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr><th>Section</th><th>Key</th><th>Module</th><th>Status</th><th>Summary</th></tr>
+      </thead>
+      <tbody id="modules"></tbody>
+    </table>
+  </div>
+
+  <h2 class="sec">Host</h2>
+  <div class="card">
+    <div class="label">Live system snapshot</div>
+    <div id="host" style="margin-top:12px;font-size:13px;line-height:2"></div>
+  </div>
+</main>
+
+<footer>
+  <div>KINGDOM X · read-only intelligence dashboard · all data is read from the local host and the registry.</div>
+  <div class="notice">
+    Every module above reports its true state. <strong>PLANNED</strong> entries are documented
+    roadmap items with no implementation. <strong>NEEDS NETWORK</strong> and
+    <strong>NEEDS API KEY</strong> work as soon as that dependency is present.
+    Absence of a finding is not proof of security, and no statement here describes a
+    system KINGDOM X has not actually inspected.
+  </div>
+</footer>
+
+<script>
+const DATA = __STATUS_JSON__;
+
+const COUNT_LABELS = {
+  WORKING: "Working",
+  NEEDS_NETWORK: "Needs network",
+  NEEDS_KEY: "Needs API key",
+  NEEDS_AUTHZ: "Needs authorization",
+  PLANNED: "Planned",
+  PARTIAL: "Partial",
+  UNAVAILABLE: "Unavailable",
+};
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+/* ---- count cards ---- */
+const counts = DATA.counts || {};
+const countsHost = document.getElementById("counts");
+const order = ["WORKING", "NEEDS_NETWORK", "NEEDS_KEY", "NEEDS_AUTHZ", "PLANNED"];
+const total = counts.total || 1;
+for (const key of order) {
+  if (counts[key] === undefined) continue;
+  const card = el("div", "card");
+  card.appendChild(el("div", "label", COUNT_LABELS[key] || key));
+  card.appendChild(el("div", "value", String(counts[key])));
+  const bar = el("div", "bar");
+  const fill = el("i");
+  fill.style.width = Math.round((counts[key] / total) * 100) + "%";
+  bar.appendChild(fill);
+  card.appendChild(bar);
+  countsHost.appendChild(card);
+}
+
+/* ---- coverage bars ---- */
+const coverageHost = document.getElementById("coverage");
+for (const key of order) {
+  if (counts[key] === undefined) continue;
+  const row = el("div");
+  row.style.marginBottom = "12px";
+  const head = el("div");
+  head.style.display = "flex";
+  head.style.justifyContent = "space-between";
+  head.style.fontSize = "12px";
+  head.appendChild(el("span", "", COUNT_LABELS[key] || key));
+  const pct = Math.round((counts[key] / total) * 100);
+  head.appendChild(el("span", "mono", counts[key] + " · " + pct + "%"));
+  row.appendChild(head);
+  const bar = el("div", "bar");
+  const fill = el("i");
+  fill.style.width = pct + "%";
+  bar.appendChild(fill);
+  row.appendChild(bar);
+  coverageHost.appendChild(row);
+}
+
+/* ---- menu ---- */
+const menuHost = document.getElementById("menu");
+for (const item of DATA.menu || []) {
+  const node = el("div", "menu-item");
+  node.appendChild(el("span", "n", item.number));
+  node.appendChild(el("span", "c", item.title));
+  const live = el("span", "live" + (item.live === 0 ? " zero" : ""), item.live === 0 ? "planned" : item.live + " live");
+  node.appendChild(live);
+  menuHost.appendChild(node);
+}
+
+/* ---- module rows ---- */
+const modulesHost = document.getElementById("modules");
+const sections = DATA.sections || {};
+for (const [sectionKey, section] of Object.entries(sections)) {
+  for (const module of section.modules) {
+    const tr = el("tr");
+    tr.appendChild(el("td", "", section.title));
+    tr.appendChild(el("td", "key", module.key));
+    tr.appendChild(el("td", "", module.title));
+    const statusCell = el("td");
+    const status = module.effective_status || module.status;
+    statusCell.appendChild(el("span", "badge b-" + status, (module.status === "PLANNED" ? "PLANNED" : status.replace(/_/g, " "))));
+    tr.appendChild(statusCell);
+    tr.appendChild(el("td", "sum", module.summary));
+    modulesHost.appendChild(tr);
+  }
+}
+
+/* ---- host snapshot ---- */
+fetch("/api/system").then(r => r.json()).then(data => {
+  const host = document.getElementById("host");
+  const sys = data.system || {};
+  const plat = data.platform || {};
+  const rows = [
+    ["Host", sys.hostname || "—"],
+    ["Platform", (plat.label || "—") + " · " + (sys.os ? sys.os.architecture : "")],
+    ["OS", sys.os ? (sys.os.name + " " + sys.os.release) : "—"],
+    ["CPU", sys.cpu ? (sys.cpu.model + " / " + sys.cpu.cores + " cores") : "—"],
+    ["Memory", sys.memory ? sys.memory.percent + "% used" : "—"],
+    ["Uptime", sys.uptime_human || "—"],
+  ];
+  for (const [k, v] of rows) {
+    const line = el("div");
+    const label = el("span", "", k);
+    label.style.color = "#8f8d88";
+    label.style.display = "inline-block";
+    label.style.width = "96px";
+    line.appendChild(label);
+    line.appendChild(el("span", "mono", String(v)));
+    host.appendChild(line);
+  }
+  document.getElementById("host-pill").textContent = (plat.label || "host") + " online";
+}).catch(() => {
+  document.getElementById("host").textContent = "Host snapshot unavailable.";
+});
+
+/* ---- gentle live refresh of the status payload ---- */
+setInterval(() => {
+  fetch("/api/status").then(r => r.json()).then(fresh => {
+    const c = fresh.counts || {};
+    const cards = document.querySelectorAll("#counts .card .value");
+    order.forEach((key, index) => {
+      if (cards[index] && c[key] !== undefined) cards[index].textContent = String(c[key]);
+    });
+  }).catch(() => {});
+}, 30000);
+</script>
+</body>
+</html>

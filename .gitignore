@@ -1,0 +1,36 @@
+# ---- secrets and local state: never commit ----
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.ruk_secret
+kingdomx.db
+kingdomx.db-wal
+kingdomx.db-shm
+data/
+logs/
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- editors / os ----
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# ---- reports produced at runtime ----
+reports/*.json
+reports/*.csv
+reports/*.md

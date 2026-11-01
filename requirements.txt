@@ -1,0 +1,21 @@
+# KINGDOM X — runtime dependencies
+#
+# Deliberately small. Anything marked optional degrades with a clear message
+# instead of breaking the application.
+
+# Terminal interface
+rich>=13.7,<15
+
+# System metrics (falls back to /proc when absent)
+psutil>=5.9
+
+# DNS record types beyond A/AAAA (falls back to the OS resolver)
+dnspython>=2.4
+
+# Web dashboard (optional — the terminal UI runs without it)
+fastapi>=0.110
+uvicorn>=0.27
+
+# Testing
+pytest>=7.4
+httpx>=0.26
