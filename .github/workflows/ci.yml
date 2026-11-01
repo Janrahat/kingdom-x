@@ -68,10 +68,24 @@ jobs:
               exit 1
             fi
           done
-          if grep -rInE 'sk-[A-Za-z0-9]{20,}' --include='*.py' --include='*.js' --include='*.html' . ; then
-            echo "::error::a key-like literal is committed"
+
+          # The tests deliberately contain key-shaped placeholder strings so they
+          # can prove the redaction layer catches them. Those are fixtures, not
+          # credentials, so tests/ is scanned separately from shipped code.
+          if grep -rInE 'sk-[A-Za-z0-9]{20,}' \
+               --include='*.py' --include='*.js' --include='*.html' \
+               --exclude-dir=tests . ; then
+            echo "::error::a key-like literal is committed in shipped code"
             exit 1
           fi
+
+          # In tests, only allow the well-known placeholder alphabet sequences.
+          if grep -rInE 'sk-[A-Za-z0-9]{20,}' --include='*.py' tests/ \
+               | grep -vE 'abcdefghijklmnopqrstuvwxyz0123456789|abcdefghijklmnopqrstuvwx' ; then
+            echo "::error::a real-looking key is committed in tests"
+            exit 1
+          fi
+
           echo "no secrets found"
 
   shell-check:
