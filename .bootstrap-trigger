@@ -1,4 +1,4 @@
-Trigger file for the one-shot materialisation run.
+Trigger file for the one-shot materialisation run (attempt 2).
 
 Changing this file is the only thing that fires .github/workflows/bootstrap.yml.
 It is deleted by that workflow.

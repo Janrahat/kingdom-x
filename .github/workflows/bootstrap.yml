@@ -49,11 +49,7 @@ jobs:
           git config user.name "KINGDOM X Bot"
           git config user.email "kingdomx-bot@users.noreply.github.com"
           git add -A
-          git commit -m "feat: KINGDOM X v1.0.0 - full source tree
-
-39 WORKING modules, 25 explicitly PLANNED, 332 offline tests.
-Terminal command center, FastAPI dashboard, 10 AI providers,
-defensive security modules, installers for Kali/Termux/Linux."
+          git commit -m "feat: KINGDOM X v1.0.0 - full source tree (39 WORKING modules, 25 PLANNED, 332 tests)"
           git push origin HEAD:main
 
       - name: Remove this bootstrap workflow
