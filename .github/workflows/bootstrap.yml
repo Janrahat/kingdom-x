@@ -35,13 +35,23 @@ jobs:
           file bundle.tar.gz
           tar tzf bundle.tar.gz | wc -l
 
-      - name: Extract over the working tree
+      - name: Stage the tree, excluding .github
         run: |
           set -euo pipefail
-          tar xzf bundle.tar.gz -C .
-          rm -f bundle.tar.gz page.html .bootstrap-marker .bootstrap-trigger
+          rm -rf /tmp/stage && mkdir -p /tmp/stage
+          tar xzf bundle.tar.gz -C /tmp/stage
+          # GITHUB_TOKEN may not add or modify workflow files, and the bundle
+          # carries a copy of .github/. Stage without it, so the checkout's own
+          # workflows are left untouched and nothing under .github is staged.
+          rm -rf /tmp/stage/.github
+          rm -f /tmp/stage/.bootstrap-marker /tmp/stage/.bootstrap-trigger
+          cp -a /tmp/stage/. .
+          echo "tracked tree root:"
+          ls -a | head -20
           echo "changed paths:"
           git status --porcelain | wc -l
+          echo "--- any staged workflow paths (must be empty) ---"
+          git status --porcelain | grep -c '^.. .github/' || true
 
       - name: Commit and push the source tree
         run: |
@@ -49,6 +59,7 @@ jobs:
           git config user.name "KINGDOM X Bot"
           git config user.email "kingdomx-bot@users.noreply.github.com"
           git add -A
+          git reset -- .github || true
           git commit -m "feat: KINGDOM X v1.0.0 - full source tree (39 WORKING modules, 25 PLANNED, 332 tests)"
           git push origin HEAD:main
 
