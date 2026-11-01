@@ -6,6 +6,9 @@ name: Bootstrap source tree
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.bootstrap-trigger'
 
 permissions:
   contents: write
@@ -36,18 +39,17 @@ jobs:
         run: |
           set -euo pipefail
           tar xzf bundle.tar.gz -C .
-          # Drop the bootstrap workflow itself so it is not committed twice over.
-          rm -f bundle.tar.gz page.html
-          echo "files now:"
+          rm -f bundle.tar.gz page.html .bootstrap-marker .bootstrap-trigger
+          echo "changed paths:"
           git status --porcelain | wc -l
 
-      - name: Commit and push
+      - name: Commit and push the source tree
         run: |
           set -euo pipefail
           git config user.name "KINGDOM X Bot"
           git config user.email "kingdomx-bot@users.noreply.github.com"
           git add -A
-          git commit -m "feat: KINGDOM X v1.0.0 — full source tree
+          git commit -m "feat: KINGDOM X v1.0.0 - full source tree
 
 39 WORKING modules, 25 explicitly PLANNED, 332 offline tests.
 Terminal command center, FastAPI dashboard, 10 AI providers,
