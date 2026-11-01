@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run the test suite
+        run: python -m pytest tests/ -q
+
+      - name: Import every module
+        run: |
+          python - <<'PY'
+          import pkgutil, importlib, kingdomx
+          failed = []
+          count = 0
+          for mod in pkgutil.walk_packages(kingdomx.__path__, "kingdomx."):
+              count += 1
+              try:
+                  importlib.import_module(mod.name)
+              except Exception as exc:
+                  failed.append(f"{mod.name}: {exc}")
+          print(f"{count} modules imported")
+          if failed:
+              raise SystemExit("\n".join(failed))
+          PY
+
+      - name: Verify the CLI boots
+        run: |
+          python -m kingdomx --help
+          python -m kingdomx selftest
+          python -m kingdomx status
+
+      - name: Check for committed secrets
+        run: |
+          set -e
+          for f in .env .ruk_secret; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error::$f is tracked by git"
+              exit 1
+            fi
+          done
+          if grep -rInE 'sk-[A-Za-z0-9]{20,}' --include='*.py' --include='*.js' --include='*.html' . ; then
+            echo "::error::a key-like literal is committed"
+            exit 1
+          fi
+          echo "no secrets found"
+
+  shell-check:
+    name: Shell script syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n on every script
+        run: |
+          for script in install-kali.sh install-termux.sh install-linux.sh update.sh uninstall.sh diagnostics.sh; do
+            bash -n "$script" && echo "ok $script"
+          done
