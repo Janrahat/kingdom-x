@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import sys
 import time
 from typing import Any, Callable
@@ -311,21 +312,39 @@ def cmd_dns(app: App, args: argparse.Namespace) -> int:
 
 
 def cmd_ip(app: App, args: argparse.Namespace) -> int:
+    from kingdomx.core.validation import validate_ip
     from kingdomx.ip.intel import classify, geolocate
 
     if not args.target:
         app.ui.error("an IP address or hostname is required")
         return 2
-    info = classify(args.target)
+
+    target = args.target.strip()
+    check = validate_ip(target)
+    if check.ok:
+        address = check.normalised or target
+    else:
+        # The CLI promises hostname support; resolve it before calling the
+        # deliberately IP-only classifier. Use the first OS-resolver answer.
+        try:
+            answers = socket.getaddrinfo(target, None, type=socket.SOCK_STREAM)
+            if not answers:
+                raise OSError("no address records returned")
+            address = answers[0][4][0].split("%", 1)[0]
+        except (OSError, IndexError) as exc:
+            app.ui.error(f"could not resolve IP address or hostname '{target}': {exc}")
+            return 2
+
+    info = classify(address)
     payload: dict[str, Any] = {"classification": info.to_dict()}
     if args.geo:
-        payload["geolocation"] = geolocate(info.address or args.target).to_dict()
+        payload["geolocation"] = geolocate(info.address).to_dict()
     if args.json:
         _json_out(payload)
     else:
         rows = [
             ("Address", str(info.address)),
-            ("Scope", info.scope),
+            ("Scope", info.kind),
             ("Version", f"IPv{info.version}" if info.version else "—"),
             ("Private", str(info.is_private)),
             ("Reverse DNS", info.reverse_dns or "—"),
@@ -334,7 +353,7 @@ def cmd_ip(app: App, args: argparse.Namespace) -> int:
         if args.geo and payload.get("geolocation"):
             geo = payload["geolocation"]
             app.ui.muted(f"  geo: {geo.get('city') or '—'}, {geo.get('country') or '—'} "
-                         f"({geo.get('provider') or 'n/a'}) — approximate only")
+                         f"({geo.get('source') or 'n/a'}) — approximate only")
     return 0
 
 
