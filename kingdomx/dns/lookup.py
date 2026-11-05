@@ -16,6 +16,7 @@ records when only the socket backend was used.
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
 import time
 from dataclasses import dataclass, field
@@ -194,14 +195,29 @@ def _lookup_dnspython(
                 supported_types=BACKEND_TYPES[Backend.DNSPYTHON],
             )
 
-    res = dns.resolver.Resolver(configure=True)
-    res.timeout = timeout
-    res.lifetime = timeout * 1.6
+    # Android/Termux keeps resolver configuration under $PREFIX/etc rather
+    # than /etc. Prefer an explicit nameserver list so dnspython does not raise
+    # NoResolverConfiguration before the query can be handled.
     if resolver:
         target = PUBLIC_RESOLVERS.get(resolver.lower(), resolver)
         if not validate_ip(target).ok:
             raise ValidationError(f"invalid resolver address: {target}")
+        res = dns.resolver.Resolver(configure=False)
         res.nameservers = [target]
+    else:
+        configured_nameservers = parse_resolv_conf()
+        if configured_nameservers:
+            res = dns.resolver.Resolver(configure=False)
+            res.nameservers = configured_nameservers
+        else:
+            try:
+                res = dns.resolver.Resolver(configure=True)
+            except dns.resolver.NoResolverConfiguration:
+                # Preserve basic A/AAAA/PTR functionality on minimal systems.
+                return _lookup_socket(name, record_type, timeout=timeout)
+
+    res.timeout = timeout
+    res.lifetime = timeout * 1.6
 
     result = DnsResult(
         name=name,
@@ -600,17 +616,33 @@ def whois_servers_hint() -> dict[str, str]:
     }
 
 
-def parse_resolv_conf(path: str = "/etc/resolv.conf") -> list[str]:
-    """Read the configured nameservers."""
+def parse_resolv_conf(path: str | None = None) -> list[str]:
+    """Read configured nameservers on Linux, Kali, and Android/Termux.
+
+    An explicit path is read on its own. Without one, check the conventional
+    Linux path first and then Termux's prefix-relative resolver file.
+    """
     from pathlib import Path
 
-    target = Path(path)
-    servers: list[str] = []
-    try:
-        for line in target.read_text(encoding="utf-8", errors="replace").splitlines():
+    if path is not None:
+        candidates = [Path(path)]
+    else:
+        candidates = [Path("/etc/resolv.conf")]
+        prefix = os.environ.get("PREFIX")
+        if prefix:
+            candidates.append(Path(prefix) / "etc" / "resolv.conf")
+
+    for target in candidates:
+        servers: list[str] = []
+        try:
+            lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
             parts = line.split()
             if len(parts) >= 2 and parts[0] == "nameserver" and validate_ip(parts[1]).ok:
-                servers.append(parts[1])
-    except OSError:
-        return []
-    return servers
+                if parts[1] not in servers:
+                    servers.append(parts[1])
+        if servers:
+            return servers
+    return []
