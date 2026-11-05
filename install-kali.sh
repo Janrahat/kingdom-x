@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# KINGDOM X — Kali Linux / Debian-family installer.
-# Idempotent: safe to re-run. Never needs root for normal features.
+# KINGDOM X — Kali / Debian / Ubuntu installer.
 set -euo pipefail
 
-BOLD=$'\033[1m'; GOLD=$'\033[38;5;178m'; GREEN=$'\033[32m'
-YELLOW=$'\033[33m'; RED=$'\033[31m'; RESET=$'\033[0m'
+GOLD=$'\033[38;5;178m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
+RED=$'\033[31m'; BOLD=$'\033[1m'; RESET=$'\033[0m'
 
 say()  { printf '%s[KINGDOM X]%s %s\n' "$GOLD" "$RESET" "$*"; }
 ok()   { printf '  %s✓%s %s\n' "$GREEN" "$RESET" "$*"; }
@@ -20,85 +19,50 @@ printf '  ONE PLATFORM. ALL TECHNOLOGIES. UNLIMITED INTELLIGENCE.%s\n\n' "$RESET
 
 # ---------------------------------------------------------------- platform check
 say "detecting platform"
-if [[ -n "${PREFIX:-}" && "${PREFIX:-}" == *com.termux* ]]; then
-  die "This is Termux. Run ./install-termux.sh instead."
+if [[ "$(id -u)" -eq 0 ]]; then
+  warn "running as root — KINGDOM X does not need root and will not use it"
 fi
 
-DISTRO="unknown"
-if [[ -r /etc/os-release ]]; then
-  # shellcheck disable=SC1091
-  . /etc/os-release
-  DISTRO="${ID:-unknown}"
-fi
-ok "distribution: $DISTRO"
-
-# ------------------------------------------------------------------- python check
-say "checking python"
-PY=""
-for candidate in python3 python; do
-  if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
-done
-[[ -n "$PY" ]] || die "python3 not found. Install it: sudo apt install -y python3 python3-venv python3-pip"
-
-if ! "$PY" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)'; then
-  die "$($PY --version) is too old. Python 3.9 or newer is required."
-fi
-ok "$($PY --version)"
-
-# ------------------------------------------------------------------ system packages
 if command -v apt-get >/dev/null 2>&1; then
-  say "checking Debian packages (venv + pip)"
-  MISSING=""
-  dpkg -s python3-venv >/dev/null 2>&1 || MISSING="$MISSING python3-venv"
-  dpkg -s python3-pip  >/dev/null 2>&1 || MISSING="$MISSING python3-pip"
-  if [[ -n "$MISSING" ]]; then
-    if [[ $EUID -eq 0 ]]; then
-      apt-get update -qq && apt-get install -y $MISSING
-    else
-      warn "missing:$MISSING"
-      warn "re-run with sudo for these, or install them manually:"
-      warn "  sudo apt-get install -y$MISSING"
-    fi
-  else
-    ok "python3-venv, python3-pip present"
-  fi
-fi
-
-# ------------------------------------------------------------------- virtualenv
-say "creating the virtual environment (.venv)"
-if [[ ! -d .venv ]]; then
-  "$PY" -m venv .venv || die "venv creation failed. On Debian install python3-venv."
-  ok "created .venv"
+  ok "apt-based system detected"
 else
-  ok ".venv already present"
+  warn "apt-get not found — install python3 and pip manually, then re-run"
 fi
 
-# shellcheck disable=SC1091
-source .venv/bin/activate
+# ------------------------------------------------------------------- packages
+say "installing system packages"
+if command -v apt-get >/dev/null 2>&1; then
+  SUDO=""
+  [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+  # shellcheck disable=SC2086
+  $SUDO apt-get update -qq || warn "apt-get update failed — continuing with the existing index"
+  # shellcheck disable=SC2086
+  $SUDO apt-get install -y -qq python3 python3-pip python3-venv \
+    || die "could not install python3 — install it manually and re-run"
+  ok "python3 and pip installed"
+fi
 
-say "upgrading pip"
-python -m pip install --quiet --upgrade pip wheel
+PYTHON_OK=$(python3 -c 'import sys; print(1 if sys.version_info >= (3,9) else 0)')
+[[ "$PYTHON_OK" == "1" ]] || die "Python 3.9+ required, found $(python3 --version)"
+ok "$(python3 --version)"
 
-say "installing dependencies"
+# ------------------------------------------------------------------- install
+say "installing Python dependencies"
 if [[ -f requirements.txt ]]; then
-  python -m pip install --quiet -r requirements.txt || die "dependency install failed"
-  ok "core requirements installed"
-else
-  warn "requirements.txt missing — skipping"
-fi
-
-# dnspython is genuinely optional: the resolver falls back to libc getaddrinfo.
-if python -c 'import dns.resolver' >/dev/null 2>&1; then
-  ok "dnspython available (full record-type support)"
-else
-  warn "dnspython not importable — A/AAAA/CNAME still work via the OS resolver,"
-  warn "MX/TXT/NS/SOA will report as unavailable. Install with:"
-  warn "  python -m pip install dnspython"
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    if python3 -m pip install --quiet --break-system-packages "$line" 2>/dev/null \
+       || python3 -m pip install --quiet "$line"; then
+      ok "$line"
+    else
+      warn "could not install '$line' — the matching feature will report UNAVAILABLE"
+    fi
+  done < requirements.txt
 fi
 
 # ------------------------------------------------------------------- database
 say "initialising the database"
-python - <<'PY'
+python3 - <<'PY'
 from kingdomx.core.config import Config
 from kingdomx.core.storage import Database
 
@@ -110,26 +74,26 @@ db.close()
 PY
 
 say "checking the install"
-python - <<'PY'
+python3 - <<'PY'
+from kingdomx.core.platform_detect import detect_platform
 from kingdomx.core.registry import REGISTRY
+
+plat = detect_platform()
 counts = REGISTRY.counts()
-working = counts.get("WORKING", 0)
-total = sum(counts.values())
-print(f"  ok {total} modules registered, {working} working without extra input")
+print(f"  ok platform: {plat.label} ({plat.arch})")
+print(f"  ok {sum(counts.values())} modules registered, {counts.get('WORKING', 0)} working")
 PY
 
 cat <<EOF
 
 ${BOLD}${GOLD}Installation complete.${RESET}
 
-  Activate the environment : source .venv/bin/activate
-  Launch the terminal UI   : python kingdomx.py
-  Module status report     : python kingdomx.py status
-  Self test                : python kingdomx.py selftest
-  Web dashboard            : python kingdomx.py web
-  Run the test suite       : python -m pytest tests/ -q
+  Launch the terminal UI   : python3 kingdomx.py
+  Module status report     : python3 kingdomx.py status
+  Self test                : python3 kingdomx.py selftest
+  Web dashboard            : python3 kingdomx.py web
+  Run the test suite       : python3 -m pytest tests/ -q
 
-  The dashboard listens on http://127.0.0.1:8000 by default.
-  A local server cannot receive internet visitors — see docs/DEPLOYMENT.md.
+  The dashboard listens on http://127.0.0.1:8000 and is bound to localhost only.
 
 EOF
