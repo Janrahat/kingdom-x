@@ -7,7 +7,7 @@ name = "kingdomx"
 version = "1.0.0"
 description = "KINGDOM X — THE KING OF GLOBAL TECHNOLOGY. ONE PLATFORM. ALL TECHNOLOGIES. UNLIMITED INTELLIGENCE."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Janrahat" }]
 keywords = ["cybersecurity", "intelligence", "osint", "analytics", "kali", "termux"]
