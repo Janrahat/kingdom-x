@@ -418,7 +418,7 @@ def cmd_ai(app: App, args: argparse.Namespace) -> int:
 
     from kingdomx.ai.client import ChatRequest
     from kingdomx.ai.manager import AIManager
-    from kingdomx.ai.catalog import all_specs, get_spec
+    from kingdomx.ai.catalog import get_spec
 
     manager = AIManager(app.config, app.db)
     action = args.ai_command
