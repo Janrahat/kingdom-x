@@ -292,11 +292,18 @@ class AIManager:
         force_unverified: bool = False,
     ) -> ChatResponse:
         """Send a chat request and record usage. Never fabricates a reply."""
-        chosen_provider = provider or request.model.split("/", 1)[0] if "/" in (request.model or "") else provider
+        # A "provider/model" string in request.model is a convenience, but an
+        # explicit ``provider=`` argument always wins. The previous expression
+        # mixed ``or`` and a conditional, so it evaluated as
+        # ``(provider or head) if "/" in model else provider`` and silently
+        # dropped the caller's provider whenever the model had no slash.
+        chosen_provider = provider
         if "/" in (request.model or ""):
             head, _, tail = request.model.partition("/")
             if get_spec(head) is not None:
-                chosen_provider, request.model = head, tail
+                if chosen_provider is None:
+                    chosen_provider = head
+                request.model = tail
 
         resolved_provider, resolved_model = (
             (chosen_provider, request.model)
