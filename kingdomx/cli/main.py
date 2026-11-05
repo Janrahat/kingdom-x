@@ -211,7 +211,7 @@ def cmd_doctor(app: App, args: argparse.Namespace) -> int:
         rows = [
             ("Host", snap["hostname"]),
             ("OS", f"{snap['os']['name']} {snap['os']['release']}"),
-            ("Arch", snap["os"]["arch"]),
+            ("Arch", snap["os"]["architecture"]),
             ("CPU", f"{snap['cpu']['model'][:40]} / {snap['cpu']['cores']} cores"),
             ("Memory", f"{snap['memory']['percent']}% used"),
             ("Uptime", snap["uptime_human"]),
@@ -293,21 +293,28 @@ def cmd_dns(app: App, args: argparse.Namespace) -> int:
         if args.json:
             _json_out(result)
         else:
-            rows = [(c["name"], "PASS" if c["passed"] else "FAIL", str(c["detail"])[:60])
-                    for c in result["checks"]]
+            rows = [
+                (c["check"], "PASS" if c["ok"] else "FAIL", str(c["detail"])[:60])
+                for c in result["checks"]
+            ]
             app.ui.table(["Check", "Result", "Detail"], rows,
                          title=f"DNS DIAGNOSE · {args.target}")
+            app.ui.muted(f"  {result['passed']}/{result['total']} checks passed · backend {result['backend']}")
         return 0
 
     records = lookup(args.target, args.type or "A")
     if args.json:
         _json_out(records.to_dict())
     else:
-        app.ui.table(
-            ["Type", "Value", "TTL"],
-            [(rec.type, rec.value[:70], str(rec.ttl)) for rec in records.records],
-            title=f"DNS {records.query_type} · {args.target}",
-        )
+        if records.answers:
+            app.ui.table(
+                ["Type", "Value", "TTL"],
+                [(rec.record_type, rec.value[:70], str(rec.ttl)) for rec in records.answers],
+                title=f"DNS {records.record_type} · {args.target}",
+            )
+        else:
+            app.ui.warn(f"no {records.record_type} records — {records.error or records.rcode}")
+        app.ui.muted(f"  backend {records.backend} · rcode {records.rcode} · {records.elapsed_ms:.0f} ms")
     return 0
 
 
@@ -404,6 +411,23 @@ def cmd_report(app: App, args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- parser
+def _add_output_flags(sub: argparse.ArgumentParser) -> None:
+    """Let ``--json``/``--plain`` follow the subcommand as well as precede it.
+
+    ``default=SUPPRESS`` is essential: without it the subparser's own default
+    would overwrite a value already parsed by the top-level parser, so
+    ``kingdomx --json status`` would silently lose its flag.
+    """
+    sub.add_argument(
+        "--json", action="store_true", default=argparse.SUPPRESS,
+        help="emit JSON instead of a table",
+    )
+    sub.add_argument(
+        "--plain", action="store_true", default=argparse.SUPPRESS,
+        help="disable colours and box drawing",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kingdomx",
@@ -454,6 +478,10 @@ def build_parser() -> argparse.ArgumentParser:
     report = sub.add_parser("report", help="export a report bundle")
     report.add_argument("--output", default="kingdomx-report.json")
     report.set_defaults(func=cmd_report)
+
+    # Every subcommand accepts --json/--plain after its own arguments too.
+    for child in sub.choices.values():
+        _add_output_flags(child)
 
     return parser
 
