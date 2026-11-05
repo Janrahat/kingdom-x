@@ -278,8 +278,9 @@ def _render_rdata(record: Any, record_type: str) -> str:
         # dnspython renders TXT with quotes and splits long strings.
         text = "".join(part.strip('"') for part in text.split('" "'))
         text = text.strip('"')
-    if record_type == "MX":
-        text = text.replace(" ", " priority=", 1) if text.count(" ") == 1 else text
+    # MX keeps dnspython's native "<priority> <host>" form. An earlier version
+    # rewrote it to "<priority> priority=<host>", which then broke every caller
+    # that split the value to recover the host name.
     return text
 
 
@@ -465,6 +466,24 @@ def zone_transfer(
     }
 
 
+def _mx_host(value: str) -> str:
+    """Extract the host from an MX value rendered as ``"<priority> <host>"``.
+
+    Tolerates the legacy ``priority=`` form so records cached by an older build
+    still parse, and returns an empty string when no host can be recovered.
+    """
+    text = (value or "").strip()
+    if not text:
+        return ""
+    parts = text.split()
+    host = parts[-1] if parts else ""
+    if host.startswith("priority="):
+        host = host.split("=", 1)[1]
+    host = host.rstrip(".")
+    # A bare priority with no host is not a usable target.
+    return "" if host.isdigit() else host
+
+
 def diagnose(domain: str, *, timeout: float = DEFAULT_TIMEOUT) -> dict[str, Any]:
     """A compact diagnostic used by the DNS menu."""
     clean = validate_domain(domain).raise_if_invalid("domain")
@@ -538,7 +557,7 @@ def diagnose(domain: str, *, timeout: float = DEFAULT_TIMEOUT) -> dict[str, Any]
     # MX targets must resolve, or mail silently fails.
     mx_problems: list[str] = []
     for value in mx.values:
-        host = value.split()[-1].rstrip(".") if " " in value else value.rstrip(".")
+        host = _mx_host(value)
         if host and not lookup(host, "A", timeout=timeout).ok and not lookup(host, "AAAA", timeout=timeout).ok:
             mx_problems.append(host)
     checks.append(
