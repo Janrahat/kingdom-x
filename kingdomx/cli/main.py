@@ -586,6 +586,35 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--port", type=int, default=8000)
     web.set_defaults(func=cmd_web)
 
+    ai = sub.add_parser("ai", help="AI providers, model checks and chat")
+    ai_actions = ai.add_subparsers(dest="ai_command", required=True)
+
+    ai_actions.add_parser("providers", help="list configured AI providers").set_defaults(func=cmd_ai)
+
+    set_key = ai_actions.add_parser("set-key", help="store a provider key in the encrypted vault")
+    set_key.add_argument("provider", help="provider name, e.g. openrouter")
+    set_key.set_defaults(func=cmd_ai)
+
+    check_ai = ai_actions.add_parser("check", help="check a provider and optionally test a chat")
+    check_ai.add_argument("--provider", required=True, help="provider name, e.g. openrouter")
+    check_ai.add_argument("--deep", action="store_true", help="send a real minimal chat request")
+    check_ai.set_defaults(func=cmd_ai)
+
+    models = ai_actions.add_parser("models", help="show models discovered from a provider")
+    models.add_argument("--provider", help="filter by provider")
+    models.add_argument("--available", action="store_true", help="show only recently verified models")
+    models.set_defaults(func=cmd_ai)
+
+    chat = ai_actions.add_parser("chat", help="send a prompt to a real AI model")
+    chat.add_argument("--provider", help="provider name, e.g. openrouter")
+    chat.add_argument("--model", help="provider model ID from the live model list")
+    chat.add_argument("--prompt", required=True, help="prompt text")
+    chat.set_defaults(func=cmd_ai)
+
+    _add_output_flags(ai)
+    for child in ai_actions.choices.values():
+        _add_output_flags(child)
+
     report = sub.add_parser("report", help="export a report bundle")
     report.add_argument("--output", default="kingdomx-report.json")
     report.set_defaults(func=cmd_report)
