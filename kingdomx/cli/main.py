@@ -611,7 +611,6 @@ def build_parser() -> argparse.ArgumentParser:
     chat.add_argument("--prompt", required=True, help="prompt text")
     chat.set_defaults(func=cmd_ai)
 
-    _add_output_flags(ai)
     for child in ai_actions.choices.values():
         _add_output_flags(child)
 
