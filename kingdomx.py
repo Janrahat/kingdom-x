@@ -18,7 +18,7 @@ from pathlib import Path
 # Make the checkout importable without `pip install -e .`
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-MIN_PYTHON = (3, 9)
+MIN_PYTHON = (3, 10)
 
 
 def main() -> int:
