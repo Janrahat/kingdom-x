@@ -410,6 +410,117 @@ def cmd_report(app: App, args: argparse.Namespace) -> int:
     return 0
 
 
+
+# --------------------------------------------------------------------------- AI commands
+def cmd_ai(app: App, args: argparse.Namespace) -> int:
+    """Manage AI providers and send real chat requests without exposing credentials."""
+    from getpass import getpass
+
+    from kingdomx.ai.catalog import get_spec
+    from kingdomx.ai.client import ChatRequest
+    from kingdomx.ai.manager import AIManager
+
+    manager = AIManager(app.config, app.db)
+    action = args.ai_command
+
+    if action == "providers":
+        rows = manager.providers()
+        payload = [
+            {
+                "name": row["name"],
+                "label": row["label"],
+                "key_configured": row["key_configured"],
+                "key_source": row["key_source"],
+                "local": row["local"],
+            }
+            for row in rows
+        ]
+        if args.json:
+            _json_out({"providers": payload})
+        else:
+            app.ui.table(
+                ["Provider", "Key configured", "Key source", "Local"],
+                [
+                    (r["label"], "yes" if r["key_configured"] else "no",
+                     r["key_source"] or "—", "yes" if r["local"] else "no")
+                    for r in payload
+                ],
+                title="AI PROVIDERS",
+            )
+        return 0
+
+    if action == "set-key":
+        spec = get_spec(args.provider)
+        if spec is None or not spec.key_required:
+            raise ValueError(f"unknown or unsupported keyed provider: {args.provider}")
+        key = getpass(f"Enter {spec.label} API key (input hidden): ").strip()
+        if not key:
+            raise ValueError("empty API key; nothing was stored")
+        result = manager.set_key(args.provider, key)
+        if args.json:
+            _json_out(result)
+        else:
+            app.ui.success(
+                f"{spec.label} key stored in the encrypted local vault; "
+                "the key itself was not displayed."
+            )
+        return 0
+
+    if action == "check":
+        result = manager.check(args.provider, deep=args.deep)
+        payload = result.to_dict()
+        if args.json:
+            _json_out(payload)
+        else:
+            app.ui.rule(f"AI PROVIDER CHECK · {args.provider}")
+            app.ui.print(f"reachable: {'yes' if result.reachable else 'no'}")
+            app.ui.print(f"key configured: {'yes' if result.key_present else 'no'}")
+            app.ui.print(f"models found: {len(result.models)}")
+            app.ui.print(f"verification: {result.verification}")
+            if result.error:
+                app.ui.warn(result.error)
+            else:
+                app.ui.success("provider check completed")
+        return 0 if result.ok else 1
+
+    if action == "models":
+        models = manager.models(provider=args.provider, only_available=args.available)
+        payload = [item.to_dict() for item in models]
+        if args.json:
+            _json_out({"models": payload, "count": len(payload)})
+        else:
+            app.ui.table(
+                ["Provider", "Model", "Available", "Verification"],
+                [
+                    (m.provider, m.name, "yes" if m.available else "no", m.verification)
+                    for m in models
+                ],
+                title="AI MODELS",
+            )
+        return 0
+
+    if action == "chat":
+        request = ChatRequest.from_prompt(
+            args.prompt,
+            model=args.model or "",
+            temperature=float(app.config.get("ai.temperature", 0.2)),
+            max_tokens=int(app.config.get("ai.max_tokens", 2048)),
+        )
+        response = manager.chat(request, provider=args.provider)
+        if args.json:
+            _json_out(response.to_dict())
+        else:
+            app.ui.rule(f"AI RESPONSE · {response.provider}/{response.model}")
+            app.ui.print(response.text)
+            if response.usage:
+                app.ui.muted(
+                    f"tokens: {response.usage.get('total_tokens', 0)} · "
+                    f"finish: {response.finish_reason or '—'}"
+                )
+        return 0
+
+    raise ValueError("choose an AI action: providers, set-key, check, models, or chat")
+
 # --------------------------------------------------------------------------- parser
 def _add_output_flags(sub: argparse.ArgumentParser) -> None:
     """Let ``--json``/``--plain`` follow the subcommand as well as precede it.
@@ -474,6 +585,34 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--host", default="127.0.0.1")
     web.add_argument("--port", type=int, default=8000)
     web.set_defaults(func=cmd_web)
+
+    ai = sub.add_parser("ai", help="AI providers, model checks and chat")
+    ai_actions = ai.add_subparsers(dest="ai_command", required=True)
+
+    ai_actions.add_parser("providers", help="list configured AI providers").set_defaults(func=cmd_ai)
+
+    set_key = ai_actions.add_parser("set-key", help="store a provider key in the encrypted vault")
+    set_key.add_argument("provider", help="provider name, e.g. openrouter")
+    set_key.set_defaults(func=cmd_ai)
+
+    check_ai = ai_actions.add_parser("check", help="check a provider and optionally test a chat")
+    check_ai.add_argument("--provider", required=True, help="provider name, e.g. openrouter")
+    check_ai.add_argument("--deep", action="store_true", help="send a real minimal chat request")
+    check_ai.set_defaults(func=cmd_ai)
+
+    models = ai_actions.add_parser("models", help="show models discovered from a provider")
+    models.add_argument("--provider", help="filter by provider")
+    models.add_argument("--available", action="store_true", help="show only recently verified models")
+    models.set_defaults(func=cmd_ai)
+
+    chat = ai_actions.add_parser("chat", help="send a prompt to a real AI model")
+    chat.add_argument("--provider", help="provider name, e.g. openrouter")
+    chat.add_argument("--model", help="provider model ID from the live model list")
+    chat.add_argument("--prompt", required=True, help="prompt text")
+    chat.set_defaults(func=cmd_ai)
+
+    for child in ai_actions.choices.values():
+        _add_output_flags(child)
 
     report = sub.add_parser("report", help="export a report bundle")
     report.add_argument("--output", default="kingdomx-report.json")

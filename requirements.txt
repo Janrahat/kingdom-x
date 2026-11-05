@@ -12,6 +12,9 @@ psutil>=5.9
 # DNS record types beyond A/AAAA (falls back to the OS resolver)
 dnspython>=2.4
 
+# TOML parser backport for Python 3.10
+tomli>=2.0; python_version < '3.11'
+
 # Web dashboard (optional — the terminal UI runs without it)
 fastapi>=0.110
 uvicorn>=0.27
