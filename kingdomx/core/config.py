@@ -27,8 +27,11 @@ from kingdomx.core.platform_detect import current as current_platform
 
 try:  # Python 3.11+
     import tomllib
-except ModuleNotFoundError:  # pragma: no cover - 3.10 fallback
-    tomllib = None  # type: ignore[assignment]
+except ModuleNotFoundError:  # Python 3.10 uses the tomli backport
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]
+    except ModuleNotFoundError:  # pragma: no cover - dependency missing
+        tomllib = None  # type: ignore[assignment]
 
 #: Environment variable that points at a different config file.
 CONFIG_ENV = "KINGDOMX_CONFIG"
