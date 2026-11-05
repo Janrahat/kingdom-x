@@ -120,6 +120,19 @@ Each entry opens only what exists. Entries backed by `PLANNED` modules say so on
 
 ---
 
+## AI provider setup (OpenRouter)
+
+OpenRouter is supported as an OpenAI-compatible provider. Store its key in KINGDOM X's encrypted local vault (the key is entered without terminal echo):
+
+```bash
+python kingdomx.py ai set-key openrouter
+python kingdomx.py ai check --provider openrouter --deep
+python kingdomx.py ai models --provider openrouter
+python kingdomx.py ai chat --provider openrouter --model <model-id> --prompt "Explain this error"
+```
+
+Use the exact model ID returned by the live model list. To use an environment variable instead, export `OPENROUTER_API_KEY` in the shell before starting KINGDOM X. Never paste API keys into source code, README files, commits, screenshots, or public issues. Revoke any key that has been exposed and create a replacement.
+
 ## Working modules
 
 **Core** — config, redaction, platform detection (Kali/Termux/WSL detection), SQLite storage with migrations, SSRF-guarded HTTP client, audit log.
