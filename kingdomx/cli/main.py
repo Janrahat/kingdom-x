@@ -410,6 +410,117 @@ def cmd_report(app: App, args: argparse.Namespace) -> int:
     return 0
 
 
+
+# --------------------------------------------------------------------------- AI commands
+def cmd_ai(app: App, args: argparse.Namespace) -> int:
+    """Manage AI providers and send real chat requests without exposing credentials."""
+    from getpass import getpass
+
+    from kingdomx.ai.client import ChatRequest
+    from kingdomx.ai.manager import AIManager
+    from kingdomx.ai.catalog import all_specs, get_spec
+
+    manager = AIManager(app.config, app.db)
+    action = args.ai_command
+
+    if action == "providers":
+        rows = manager.providers()
+        payload = [
+            {
+                "name": row["name"],
+                "label": row["label"],
+                "key_configured": row["key_configured"],
+                "key_source": row["key_source"],
+                "local": row["local"],
+            }
+            for row in rows
+        ]
+        if args.json:
+            _json_out({"providers": payload})
+        else:
+            app.ui.table(
+                ["Provider", "Key configured", "Key source", "Local"],
+                [
+                    (r["label"], "yes" if r["key_configured"] else "no",
+                     r["key_source"] or "—", "yes" if r["local"] else "no")
+                    for r in payload
+                ],
+                title="AI PROVIDERS",
+            )
+        return 0
+
+    if action == "set-key":
+        spec = get_spec(args.provider)
+        if spec is None or not spec.key_required:
+            raise ValueError(f"unknown or unsupported keyed provider: {args.provider}")
+        key = getpass(f"Enter {spec.label} API key (input hidden): ").strip()
+        if not key:
+            raise ValueError("empty API key; nothing was stored")
+        result = manager.set_key(args.provider, key)
+        if args.json:
+            _json_out(result)
+        else:
+            app.ui.success(
+                f"{spec.label} key stored in the encrypted local vault; "
+                "the key itself was not displayed."
+            )
+        return 0
+
+    if action == "check":
+        result = manager.check(args.provider, deep=args.deep)
+        payload = result.to_dict()
+        if args.json:
+            _json_out(payload)
+        else:
+            app.ui.rule(f"AI PROVIDER CHECK · {args.provider}")
+            app.ui.print(f"reachable: {'yes' if result.reachable else 'no'}")
+            app.ui.print(f"key configured: {'yes' if result.key_present else 'no'}")
+            app.ui.print(f"models found: {len(result.models)}")
+            app.ui.print(f"verification: {result.verification}")
+            if result.error:
+                app.ui.warn(result.error)
+            else:
+                app.ui.success("provider check completed")
+        return 0 if result.ok else 1
+
+    if action == "models":
+        models = manager.models(provider=args.provider, only_available=args.available)
+        payload = [item.to_dict() for item in models]
+        if args.json:
+            _json_out({"models": payload, "count": len(payload)})
+        else:
+            app.ui.table(
+                ["Provider", "Model", "Available", "Verification"],
+                [
+                    (m.provider, m.name, "yes" if m.available else "no", m.verification)
+                    for m in models
+                ],
+                title="AI MODELS",
+            )
+        return 0
+
+    if action == "chat":
+        request = ChatRequest.from_prompt(
+            args.prompt,
+            model=args.model or "",
+            temperature=float(app.config.get("ai.temperature", 0.2)),
+            max_tokens=int(app.config.get("ai.max_tokens", 2048)),
+        )
+        response = manager.chat(request, provider=args.provider)
+        if args.json:
+            _json_out(response.to_dict())
+        else:
+            app.ui.rule(f"AI RESPONSE · {response.provider}/{response.model}")
+            app.ui.print(response.text)
+            if response.usage:
+                app.ui.muted(
+                    f"tokens: {response.usage.get('total_tokens', 0)} · "
+                    f"finish: {response.finish_reason or '—'}"
+                )
+        return 0
+
+    raise ValueError("choose an AI action: providers, set-key, check, models, or chat")
+
 # --------------------------------------------------------------------------- parser
 def _add_output_flags(sub: argparse.ArgumentParser) -> None:
     """Let ``--json``/``--plain`` follow the subcommand as well as precede it.
