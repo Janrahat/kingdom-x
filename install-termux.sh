@@ -52,17 +52,49 @@ ok "$(python --version)"
 
 # ------------------------------------------------------------------- install
 say "installing dependencies"
+
+# cryptography is the one dependency that is painful on Android: PyPI ships no
+# prebuilt wheel for most Termux ABIs, so pip falls back to a Rust source build
+# that needs a full toolchain and often fails. Termux packages a prebuilt
+# python-cryptography, so prefer it and only let pip try if that is unavailable.
+CRYPTO_VIA_PKG=0
+if pkg show python-cryptography >/dev/null 2>&1; then
+  if pkg install -y python-cryptography >/dev/null 2>&1; then
+    CRYPTO_VIA_PKG=1
+    ok "python-cryptography installed from the Termux repo (no source build)"
+  else
+    warn "pkg install python-cryptography failed — will try pip"
+  fi
+else
+  warn "python-cryptography is not in this Termux repo — will try pip"
+fi
+
 python -m pip install --upgrade pip setuptools wheel >/dev/null
 if [[ -f requirements.txt ]]; then
   # One at a time so a single unavailable wheel does not abort the whole install.
   while IFS= read -r line; do
     [[ -z "$line" || "$line" == \#* ]] && continue
+    # Skip cryptography when the Termux package already provided it: a pip
+    # install here would try to rebuild it from source and undo the win.
+    if [[ "$CRYPTO_VIA_PKG" == "1" && "$line" == cryptography* ]]; then
+      ok "$line (provided by pkg)"
+      continue
+    fi
     if python -m pip install --quiet "$line"; then
       ok "$line"
     else
       warn "could not install '$line' — the matching feature will report UNAVAILABLE"
     fi
   done < requirements.txt
+fi
+
+# The vault is required, not optional: without it provider keys cannot be stored
+# encrypted. Report the real state instead of letting the app fail later.
+if python -c 'import cryptography' >/dev/null 2>&1; then
+  ok "cryptography available (encrypted key vault works)"
+else
+  warn "cryptography unavailable — the key vault will refuse to store secrets."
+  warn "  fix: pkg install python-cryptography   (or: pkg install rust && pip install cryptography)"
 fi
 
 # psutil is the one dependency that commonly needs compilation on Android.
